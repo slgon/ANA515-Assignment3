@@ -1,0 +1,121 @@
+---
+title: "ANA 515 Assignment 3"
+author: "Siliang Gong"
+date: "Nov 28, 2021"
+output:
+  pdf_document: default
+  html_document: default
+
+---
+
+``` {r setup, include = FALSE}
+
+library(tidyverse)
+library(stringr)
+library(knitr)
+library(ggplot2)
+library(lubridate)
+```
+
+## Read the data
+
+```{r, echo = T}
+## read data
+ analysis.data <- read.csv("StormEvents_details-ftp_v1.0_d1991_c20210803.csv")
+
+```
+
+## Select a subset of features
+
+```{r, echo = T}
+
+## select a subset of features
+
+event.data <- analysis.data%>%select(BEGIN_DATE_TIME, END_DATE_TIME, EPISODE_ID, EVENT_ID, 
+STATE, STATE_FIPS, CZ_NAME, CZ_TYPE, CZ_FIPS, EVENT_TYPE, SOURCE, BEGIN_LAT, 
+BEGIN_LON, END_LAT, END_LON)
+
+```
+
+## Convert the beginning and ending dates
+
+```{r, echo=T}
+
+event.data <- event.data%>%mutate(BEGIN_DATE_TIME = dmy_hms(BEGIN_DATE_TIME), 
+                                  END_DATE_TIME = dmy_hms(END_DATE_TIME))
+
+```
+
+## Change state and county
+
+```{r, echo=T}
+
+event.data <- event.data%>%mutate(STATE = str_to_title(STATE))
+head(event.data$STATE, 5)
+
+```
+
+
+## Filter by CZ_TYPE and then remove CZ_TYPE
+
+```{r, echo=T}
+
+event.data <- event.data%>%filter(CZ_TYPE == "C")%>%select(-CZ_TYPE)
+
+```
+
+## Pad state and county FIPS
+
+```{r, echo=T}
+
+event.data <- event.data%>%mutate(STATE_FIPS = str_pad(STATE_FIPS, width = 3, side = "left", pad = "0"), CZ_FIPS = str_pad(CZ_FIPS, width = 3, side = "left", pad = "0"))
+
+
+event.data <- unite_(event.data, "FIPS", c("STATE_FIPS", "CZ_FIPS"), sep = "")
+
+head(event.data$FIPS, 5)
+
+```
+
+## Rename all column names to lower case
+
+```{r, echo=T}
+event.data = rename_all(event.data, tolower)
+
+colnames(event.data)
+
+```
+
+## load dataset state and create a dataframe 
+
+```{r, echo = T}
+data("state")
+us.state.info <- data.frame(state = state.name, region =
+                              state.region, area = state.area)
+head(us.state.info, 5)
+
+```
+
+## Create a dataframe with the number of events per state in the year of your birth. Merge in the state information dataframe you just created in step 8. Remove any states that are not in the state information dataframe
+
+
+```{r, echo = T}
+newset = data.frame(table(event.data$state))
+newset1 <-  rename(newset, c("state" = "Var1"))
+
+merged <- merge(newset1, us.state.info, by = "state")
+head(merged, 5)
+
+```
+
+
+## Create a plot
+
+```{r, echo = T}
+storm_plot <- ggplot(merged, aes(x = area, y = Freq))+
+  geom_point(aes(color = region)) +
+  labs(x = "Land area (square miles)", 
+       y = "# of storm events in 1991")
+storm_plot
+
+```
